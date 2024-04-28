@@ -1,0 +1,61 @@
+ 
+name: Docker Build and Push
+
+on:
+  push:
+    branches:
+      - Todo_app
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Build Docker Image
+        run: |
+          echo "Building the project..."
+          docker build -t "$IMAGE_NAME_TEG" .
+          docker save $IMAGE_NAME_TEG > $IMAGE_NAME_TEG.tar.gz
+        env:
+          IMAGE_NAME_TEG: ${{ secrets.IMAGE_NAME_TEG }}
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: docker-image
+          path: ${{ env.IMAGE_NAME_TEG }}.tar.gz
+
+  push:
+    name: Push Docker Image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: docker-image
+          path: ${{ secrets.IMAGE_NAME_TEG }}.tar.gz
+
+      - name: Load Docker Image
+        run: docker load < ${{ secrets.IMAGE_NAME_TEG }}.tar.gz
+
+      - name: Log in to Docker Hub
+        run: docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASS docker.io
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          DOCKER_HUB_PASS: ${{ secrets.DOCKER_HUB_PASS }}
+
+      - name: Tag Docker Image
+        run: docker tag "$IMAGE_NAME_TEG" "$DOCKER_HUB_USER/$IMAGE_NAME_TEG"
+        env:
+          IMAGE_NAME_TEG: ${{ secrets.IMAGE_NAME_TEG }}
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+
+      - name: Push Docker Image
+        run: docker push "$DOCKER_HUB_USER/$IMAGE_NAME_TEG"
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          IMAGE_NAME_TEG: ${{ secrets.IMAGE_NAME_TEG }}
