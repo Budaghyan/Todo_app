@@ -1,0 +1,28 @@
+stages:
+  - build
+  - push
+
+image: docker:latest
+
+services:
+  - docker:dind
+
+build_job:
+  stage: build
+  script:
+    - echo "Building the project..."
+    - docker build -t "$IMAGE_NAME_TEG" .
+    - docker save $IMAGE_NAME_TEG > $IMAGE_NAME_TEG.tar.gz
+  artifacts:
+    paths:
+      - $IMAGE_NAME_TEG.tar.gz
+
+push_job:
+  stage: push
+  script:
+    - docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASS docker.io
+    - docker load < $IMAGE_NAME_TEG.tar.gz
+    - docker tag "$IMAGE_NAME_TEG" "$DOCKER_HUB_USER"/"$IMAGE_NAME_TEG"
+    - docker push "$DOCKER_HUB_USER"/"$IMAGE_NAME_TEG"
+  dependencies:
+    - build_job
